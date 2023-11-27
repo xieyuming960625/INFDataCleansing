@@ -1,0 +1,140 @@
+import re
+class RuleFilter(object):
+    def __init__(self):
+        special_symbol_set = []
+        with open("/Users/liuye/workspace/01_code/LLM/FinDianping/pretrain/fin_pt/special_symbols.txt", 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip()
+                if line:
+                    special_symbol_set.append(line)
+
+        self.special_symbol_set = special_symbol_set
+
+        punctuation_set = []
+        with open("/Users/liuye/workspace/01_code/LLM/FinDianping/pretrain/fin_pt/punctuations.txt", 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip()
+                if line:
+                    punctuation_set.append(line)
+
+        self.punctuation_set = punctuation_set
+        self.file_suffix = [".txt", ".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx", ".csv", ".png", ".jpg",
+                            ".jpeg", ".mp4",".avi",".mov", ".flv", ".mpg", ".wmv", ".mkv", ".rm", ".rmvb", ".mpeg", ".webp"]
+        self.html_elements = [
+            "a", "img", "tr", "td", "table", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+            "ul", "ol", "li", "div", "span", "form", "input", "button", "textarea",
+            "select", "option", "header", "nav", "section", "article", "aside", "footer",
+            "audio", "video", "source", "iframe", "canvas", "b", "i", "strong", "em",
+            "mark", "small", "sub", "sup", "br", "hr", "doctype", "html", "head", "title",
+            "body", "meta", "link"
+        ]
+    def filter_special_symbol(self, text):
+        new_text = ""
+        for char in text:
+            if char in self.special_symbol_set:
+                new_text += " "
+            else:
+                new_text += char
+
+        return new_text
+
+    def contains_consecutive_punctuations(self, text):
+        text = text.strip().lower()
+        text = text.replace("\n", "")
+        text = text.replace(" ", "")
+        text = text.replace("\t", "")
+
+        for i in range(len(text) - 1):
+            if text[i] in self.punctuation_set and text[i + 1] in self.punctuation_set:
+                return True
+        return False
+
+    def short_text(self, text, min_length=100):
+        text = text.strip()
+        text = text.replace("\n", "")
+        text = text.replace(" ", "")
+        text = text.replace("\t", "")
+
+        if len(text) < min_length:
+            return True
+        return False
+
+    def contains_news_sources(self, text):
+        def _contails_keyword(inputs):
+            source_keywords = ["记者", "来源", "编辑", "报导", "作者", "摄影", "通讯员"]
+            for source_keyword in source_keywords:
+                patterns = [
+                    r'（{}'.format(source_keyword),
+                    r'{}：'.format(source_keyword),
+                    r'{}:'.format(source_keyword),
+                    r'({} '.format(source_keyword)
+                ]
+
+                for pattern in patterns:
+                    if pattern in inputs:
+                        return True
+            return False
+
+        def _check_last_line(text):
+
+            lines = text.split('\n')
+            last_line = lines[-1].strip()
+            juhaos = last_line.split('。')
+            last_juhao = juhaos[-1]
+            if not last_juhao:
+                last_juhao = juhaos[-2]
+
+            return _contails_keyword(last_juhao)
+
+        def _check_first_line(text):
+
+            lines = text.split('\n')
+            first_line = lines[0].strip()
+            juhaos = first_line.split('。')
+            first_juhao = juhaos[0]
+            return _contails_keyword(first_juhao)
+
+        text = text.strip().lower()
+        text = text.replace(" ", "")
+        text = text.replace("\t", "")
+
+        return _check_last_line(text) or _check_first_line(text)
+
+    def contains_file_suffix(self, text):
+        text = text.lower()
+        for file_suffix in self.file_suffix:
+            if file_suffix in text:
+                return True
+        return False
+
+    def contains_html_elements(self, text):
+        """
+        Check if the given text contains any of the specified HTML elements.
+        HTML elements are identified using a regular expression pattern.
+        """
+        # Construct a regular expression pattern to match HTML elements
+        pattern = r'<(' + '|'.join(self.html_elements) + ')(\s+[^>]*)?>'
+
+        # Search for the pattern in the text
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+        else:
+            return False
+
+filter = RuleFilter()
+text = '重要内容提示：股东大会召开日期：👇2022年4月13日本次股东大会采用的网络投票系统：\n上海证券交易所股东大会网络投票系统一、召开会议的基本情况(一)股东大会类型和届次2022年第一次临时股东大会(二)股东大会召集人：董事会(三)投票方式：本次股东大会所采用的表决方式是现场投票和网络投票相结合的方式(四)现场会议召开的日期、时间和地点召开的日期时间：2022年4月13日14点00分召开地点：杭州市凤起东路8号4040会议室(五)网络投票的系统、起止日期和投票时间。网络投票系统：上海证券交易所股东大会网络投票系统网络投票起止时间：自2022年4月13日至2022年4月13日采用上海证券交易所网络投票系统,通过交易系统投票平台的投票时间为股东大会召开当日的交易时间段,即9:15-9:25,9:30-11:30,13:00-15:00；通过互联网投票平台的投票时间为股东大会召开当日的9:15-15:00。(六)融资融券、转融通、约定购回业务账户和沪股通投资者的投票程序涉及融资融券、转融通业务、约定购回业务相关账户以及沪股通投资者的投票,应按照《上海证券交易所上市公司自律监管指引第1号—规范运作》等有关规定执行。(七)涉及公开征集股东投票权二、会议审议事项本次股东大会审议议案及投票股东类型投票股东类型序号议案名称A股股东非累积投票议案1关于公司符合非公开发行A股股票条件的议√2.00关于公司非公开发行A股股票方案的议案√2.01发行股票的种类和面值√2.02发行方式和发行时间√2.03发行对象和认购方式√2.04定价基准日及发行价格√2.05发行数量√2.06募集资金规模和用途√2.07限售期√2.08上市地点√2.09滚存未分配利润的安排√2.10本次非公开发行股票决议的有效期√3关于公司非公开发行A股股票预案的议案√4关于公司非公开发行A股股票募集资金使用√可行性分析报告的议案5关于公司前次募集资金使用情况报告的议案√6关于公司非公开发行A股股票摊薄即期回报、√填补措施及相关主体承诺的议案7关于提请公司股东大会授权董事会及董事会√授权人士全权办理本次非公开发行A股股票有关事宜的议案8关于公司未来三年(2022年-2024年)股东回√报规划的议案1.各议案已披露的时间和披露媒体上述议案已经公司第一届董事会第三十一次会议和第一届监事会第二十九次会议审议通过,相关内容详见2021年3月19日披露于上海证券交易所网站（www.sse.com.cn）的相关公告及后续公司在上海证券交易所网站披露的股东大会会议资料。2.特别决议议案：1,2,3,4,5,6,7,83.对中小投资者单独计票的议案：1,2,3,4,5,6,7,84.涉及关联股东回避表决的议案：无应回避表决的关联股东名称：无5.涉及优先股股东参与表决的议案：无'
+text = "票据等应缴纳的增值税 营业税 城市维护建设税 教育费附加和土地增值税、 、 、 。"
+text = "金融界基金08月25日讯 融通新能源汽车主题精选灵活配置混合型证券投资基金　　融通新能源汽车C基金成立以来收益6.11%，今年以来收益6.11%，近一月收益--，近一年收益--，近三年收益--。　　本基金成立以来分红0次，累计分红金额0亿元。目前该基金开放申购。　　基金经理为王迪　　最新基金定期报告显示，该基金重仓持有中国重汽（持仓比例8.59%）、宁德时代（持仓比例7.22%）、汇川技术（持仓比例6.83%）、星宇股份（持仓比例6.48%）、中航光电（持仓比例6.32%）、银轮股份（持仓比例5.32%）、恩捷股份（持仓比例5.21%）、斯达半导（持仓比例4.77%）、拓普集团（持仓比例4.69%）、三花智控（持仓比例4.33%）。　　报告期内基金投资策略和运作分析　　报告期内，板块配置核心依然以电动车为主，重卡产业链和部分汽车零部件为辅。二季度电动车基本面偏弱，主要是疫情的超预期发展，尤其是海外疫情超预期，带来了全球整体电动车销量增速迅速下降，板块个股也出现了较大调整，不过组合核心配置于竞争格局较好的细分行业，以一线龙头公司为主，所以股价调整幅度小于行业内二三线标的。二季度重卡行业景气度超预期，部分对冲了电动车板块的调整。另外，二季度通过精选个股，部分个股出现了大幅上涨，使整体业绩表现好于电动车板块走势。　　??　　??展望三季度，看好电动车板块的趋势。主要是核心逻辑均出现了正面变化。国内销量随着经济好转预计逐渐见底回升，欧洲电动车支持政策不断加码，预计销量或将恢复至一季度的快速增长，全球头部电动车厂商随着产能释放销量也将继续保持快速增长。重卡产业链将大概率继续保持强势，随着下游基建项目不断加码以及国三以下车型淘汰力度加强，继续看好三季度重卡销量的快速增长。　　??　　??配置方面，计划将进一步加大电动车的配置比例，个股选择继续保持细分行业的龙头公司为主。　　??　　报告期内基金的业绩表现　　截至本报告期末本基金份额净值为1.6091元；本报告期基金份额净值增长率为34.73%，业绩比较基准收益率为21.37%。　　??（点击查看更多基金异动）"
+text = '特别提示：本公告所载2018年度的财务数据仅为初步核算数据,已经公司内部审计部门审计,未经会计师事务所审计,与年度报告中披露的最终数据可能存在差异,请投资者注意投资风险。一、2018年度主要财务数据和指标单位：人民币元项目本报告期上年同期增减变动幅度营业总收入4,018,142,266.68人民币元，4,094,220,132.55人民币元，-1.86%，营业利润629,066,816.09人民币元，721,930,423.75人民币元，-12.86%，利润总额630,602,761.49人民币元，784,969,243.99人民币元，-19.67%，归属于上市公司股东的526,218,326.01人民币元，651,657,863.67人民币元，-19.25%，净利润基本每股收益（元）0.4867，0.6072，-19.85%，加权平均净资产收益率11.56%，16.74%，-5.18%，本报告期末本报告期初增减变动幅度总资产10,557,382,783.24人民币元，12,655,944,688.29人民币元，-16.58%，归属于上市公司股东的4,655,389,353.68人民币元，4,233,276,515.63人民币元，9.97%，所有者权益股本1,081,272,100.00人民币元，1,080,956,100.00人民币元，0.03%，归属于上市公司股东的4.31，3.95，9.11%，每股净资产（元）.，.，.，.，.，.，.，.，.，.，.，.，.，.，.，.，.，.，.，二、经营业绩和财务状况情况说明1.总资产报告期末为1,055,738.28万元,较上年期末减少209,856.19万元,减少16.58%，,主要是：（1，）公司偿还债务,负债减少所致；（2）北京铝能清新公司由于中铝环保增资,导致我公司不再控股,根据企业会计准则规定,我公司不再将铝能清新资产并入我公司报表所致；2.归属上市公司股东的所有者权益报告期末为465,538.94万元,较上年期末增加42,211.28人民币元，万元,增长9.97%，,主要是报告期实现的净利润增长所致。3.归属上市公司股东的净利润报告期为52,621.83万元,较上年同期减少12,543.95人民币元，万元,下降19.25%，,主要原因如下：（1）营业收入报告期较上年同期减少7,607.79万元,营业成本报告期较上年同期减少156.93万元,报告期建造项目毛利略有下降；（2）管理费用报告期较上年同期增加1,116.91万元,主要原因是：公司运营业务增长,同时员工工资基数增长,导致相关费用增加；（3）财务费用报告期较上年同期增加4,609.23万元,主要原因是：融资成本上涨导致利息支出增加所致；（4）资产减值损失报告期较上年同期增加2,930.23万元,主要原因是：应收账款账期增加,坏账准备增加。'
+text = "二、关于加强单位资产核算工作的要求”、“ ”、“ ”余额合计数 加上"
+text = "下列关于完全竞争市场上企业的短期供给曲线的说法正确的是..............................（ ）。A、企业按照边际成本大于边际收益的原则来选择其最优生产规模B、当边际成本大于边际收益时,企业则应减少产量C、当市场价格大于平均可变成本时，企业应当停止生产D、企业的边际成本曲线就是其短期供给曲线E、当市场价格小于平均可变成本时，企业应当停止生产答案：B,E分析解释：边际成本等于边际收益既可称作利润最大化的均衡条件，也可称作亏损最小的均衡条件。A错误；边际成本大于边际收益，企业应当迅速减少产量，以增加利润或者减少亏损，B正确。还需要指出的是，在企业的短期生产或产量决策中,还有一个停止生产的临界点或停止营业的临界点。这就是市场价格P等于平均可变成本AVC之处,当市场价格或平均收益、边际收益小于**平均成本**时企业应当停止生产,以避免产生更大的亏损，E正确，C错误。企业的短期供给曲线就是处于平均可变成本之上的边际成本曲线,它表示，企业在每一个价格水平的供给量都是能够为其带来最大的利润或最小的亏损的最优产量，D错误。![完全竞争产量决策.png](https://ak-tiku.oss-cn-beijing.aliyuncs.com/image/a534a55f7afc99a51836d7251dca1600.png)【知识点】完全竞争市场中生产者的行为【考点】完全竞争市场上企业产量决策的基本原则【考察方向】概念释义【难易程度】易"
+print(text)
+
+text = filter.filter_special_symbol(text)
+print(filter.short_text(text))
+print(filter.contains_consecutive_punctuations(text))
+print(filter.contains_file_suffix(text))
+print(filter.contains_news_sources(text))
+print(filter.contains_html_elements(text))
